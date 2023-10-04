@@ -1,15 +1,18 @@
 FROM python:3.9-slim-bullseye
 
-RUN apt update && apt install -y nmap
+RUN apt update && apt install -y nmap build-essential cmake
 
 # Create default user folder
 RUN mkdir -p /home/pi
 
-# Install dvl service
-COPY dvl-a50 /home/pi/dvl-a50
-RUN cd /home/pi/dvl-a50 && pip3 install .
+RUN pip3 install requests loguru pymavlink pyserial numpy wheel --extra-index-url https://www.piwheels.org/simple
+RUN apt install -y libopenblas-dev
 
-LABEL version="1.0.3"
+# Install dvl service
+COPY wayfinder /home/pi/wayfinder
+RUN cd /home/pi/wayfinder && pip3 install .
+
+LABEL version="1.0.0"
 LABEL permissions='\
 {\
     "NetworkMode": "host"\
@@ -31,11 +34,11 @@ LABEL tags='[\
         "navigation",\
         "doppler-velocity-log"\
     ]'
-LABEL readme='https://raw.githubusercontent.com/bluerobotics/BlueOS-Water-Linked-DVL/{tag}/README.md'
+LABEL readme='https://raw.githubusercontent.com/williangalvani/Teledyne-dvl/{tag}/README.md'
 LABEL links='{\
-        "website": "https://github.com/bluerobotics/BlueOS-Water-Linked-DVL",\
-        "support": "https://github.com/bluerobotics/BlueOS-Water-Linked-DVL/issues"\
+        "website": "https://raw.githubusercontent.com/williangalvani/Teledyne-dvl",\
+        "support": "https://raw.githubusercontent.com/williangalvani/Teledyne-dvl/issues"\
     }'
-LABEL requirements="core >= 1.1"
+LABEL requirements="core >= 1.0"
 
-ENTRYPOINT /home/pi/dvl-a50/main.py
+ENTRYPOINT /home/pi/wayfinder/integration/base_integration.py
