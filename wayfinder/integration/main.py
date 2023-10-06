@@ -4,7 +4,7 @@ Driver for the Waterlinked DVL A-50
 """
 
 import json
-
+from base_integration import WayFinderDriver
 from flask import Flask
 
 # set the project root directory as the static folder, you can set others.
@@ -40,8 +40,8 @@ class API:
         return self.dvl.set_current_position(float(lat), float(lon))
 
 if __name__ == "__main__":
-    #driver = DvlDriver()
-    api = API(None)
+    driver = WayFinderDriver()
+    api = API(driver)
 
     @app.route("/get_status")
     def get_status():
@@ -49,7 +49,9 @@ if __name__ == "__main__":
 
     @app.route("/enable/<enable>")
     def set_enabled(enable: str):
-        return str(api.set_enabled(enable))
+        if enable in ["true", "false"]:
+            return str(api.set_enabled(enable == "true"))
+        return "error"
 
     @app.route("/setcurrentposition/<lat>/<lon>")
     def set_current_position(lat, lon):
@@ -63,5 +65,6 @@ if __name__ == "__main__":
     def root():
         return app.send_static_file("index.html")
 
-    #driver.start()
+    driver.start()
+
     app.run(host="0.0.0.0", port=9001)
