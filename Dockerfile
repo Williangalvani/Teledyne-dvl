@@ -41,4 +41,6 @@ LABEL links='{\
     }'
 LABEL requirements="core >= 1.0"
 
-ENTRYPOINT /home/pi/wayfinder/integration/base_integration.py
+RUN pip3 install flask
+
+ENTRYPOINT /home/pi/wayfinder/integration/main.py
