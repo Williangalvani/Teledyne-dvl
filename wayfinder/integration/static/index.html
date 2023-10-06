@@ -1,0 +1,231 @@
+<html>
+
+<head>
+	<title>Teledyne DVL</title>
+
+	<!-- Leaflet will only work with internet, and that is fine. -->
+	<link rel="stylesheet" href="/static/css/leaflet.css"/>
+	<!-- Make sure you put this AFTER Leaflet's CSS -->
+	<script src="/static/js/leaflet.js"></script>
+	<script src="/static/js/rotatedmarker.js"></script>
+
+	<link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+	<link href="/static/css/materialdesignicons.min.css" rel="stylesheet">
+	<link href="/static/css/vuetify.min.css" rel="stylesheet">
+	<link href="/static/css/style.css" rel="stylesheet">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+
+<style>
+	.v-card {
+		padding: 20px;
+	}
+	.leaflet-grab {
+   		cursor: crosshair !important;
+	}
+	.leaflet-dragging .leaflet-grab {
+   		cursor: grab !important;
+	}
+</style>
+
+<div id="app">
+	<v-app>
+		<v-main>
+			<v-container>
+				<img src="/static/TeledyneLogo.png" class="logo" />
+				<h1>DVL Configuration</h1>
+				<p>BlueOS Extension connecting to <a :href="'http://'+hostname">{{ hostname }}</a></p>
+					<br />
+				<v-row>
+					<!-- uncoomment this to have control of what kind of message is bein sent and to allow pointing the dvl forward-->
+					<!--
+					<v-col>
+						<v-card height="200">
+							<h2>Message type:</h2>
+							<v-radio-group v-model="this.messageToSend">
+								<v-radio v-for="msg in messageOptions" :key="msg" :label="`${msg}`" :value="msg" @change="setDvlMessage(msg)">
+								</v-radio>
+							</v-radio-group>
+						</v-card>
+					</v-col>
+					<v-col>
+						<v-card height="200">
+							<h2>Orientation:</h2>
+							<v-radio-group v-model="this.orientation">
+								<v-radio v-for="(item, key) in orientationOptions" :key="item" :label="key" :value="item" @change="setDvlOrientation(item)"></v-radio>
+							</v-radio-group>
+						</v-card>
+					</v-col>
+					<v-col>
+					-->
+					<v-col
+					class="col-12 col-sm-6 col-md-8">
+						<v-card height="650">
+							<h2>Set Vehicle Location</h2>
+							<p>Click on the map to set marker position manually</p>
+							<div id="mapid" style="height: 400px;"></div>
+							<v-row>
+								<v-col class="col-5">
+									<form>
+										<v-text-field label="Latitude" id="lat" variant="outlined" v-model="this.newOrigin[0]"></v-text-field>
+										<v-text-field label="Longitude" id="long" variant="outlined" v-model="this.newOrigin[1]"></v-text-field>
+									</form>
+								</v-col>
+								<v-col class="col-7">
+									<v-btn id="btn-location" type="button" class="btn btn-primary" @click="setCurrentLocation();">Set Vehicle Position</v-btn>
+								</v-col>
+							</v-row>
+						</v-card>
+					</v-col>
+				</v-row>
+				<v-row>
+					<v-col>
+						<v-card height="1000" v-if='hostname'>
+							<h2>Water Linked DVL Configuration Page</h2>
+							<p><a :href="'http://'+hostname">({{hostname}})</a></p>
+							<iframe style="width: 100%; height: 100%;" :src='`http://${hostname}`'></iframe>
+						</v-card>
+					</v-col>
+				</v-row>
+			</v-container>
+		</v-main>
+	</v-app>
+</div>
+
+<script src="/static/js/vue.js"></script>
+<script src="/static/js/vuetify.js"></script>
+<script src="/static/js/axios.min.js"></script>
+
+<script>
+	Vue.config.devtools = true;
+	new Vue({
+		el: '#app',
+		vuetify: new Vuetify(),
+		data() {
+			return {
+				status: "",
+				enabled: null,
+				orientation: null,
+				origin: [0, 0],
+				newOrigin: [0, 0],
+				rangefinder: null,
+				messageToSend: null,
+				hostname: null,
+				rovMarker: undefined,
+				newHostname: null,
+				rovPosition: [],
+				messageOptions: ["POSITION_DELTA", "POSITION_ESTIMATE", "SPEED_ESTIMATE"],
+				orientationOptions: {
+					"Downwards (LED pointing forward)": 1,
+					"Forward (Experimental)": 2,
+				}
+			}
+		},
+		methods: {
+			updateDvlStatus() {
+				axios.get('/get_status', { timeout: 1000 })
+					.then((response) => {
+						// handle success
+						let data = response.data
+						this.status = data.status
+						this.enabled = data.enabled
+						this.orientation = data.orientation
+						this.origin = data.origin
+						if (this.newOrigin === ['0','0']) {
+							this.newOrigin = data.origin
+						}
+						this.rangefinder = data.rangefinder
+						this.messageToSend = data.messageToSend
+					  this.hostname = data.hostname
+						this.messageToSend = data.should_send
+						if (this.newHostname == null) {
+							this.newHostname = data.hostname
+						}
+					})
+					.catch((error) => {
+						this.status = `Unable to talk to DVL service: ${error}`
+						console.log(error);
+					})
+			},
+			updateVehiclePosition() {
+				axios.get(`http://${window.location.hostname}/mavlink2rest/mavlink/vehicles/1/components/1/messages/GLOBAL_POSITION_INT/message`, { timeout: 1000 })
+					.then((response) => {
+						lat = response.data.lat/1e7
+						lon = response.data.lon/1e7
+						if (this.rovMarker === undefined) {
+							var myIcon = L.icon(
+								{
+									iconUrl: '/static/arrow.png',
+									iconSize: [30, 30],
+									iconAnchor: [15, 15],
+									className: 'rovmarker',
+							});
+							this.rovMarker = L.marker([lat, lon], { title: "ROV position", icon: myIcon, rotationAngle: 45})
+							.addTo(map)
+						} else {
+							this.rovPosition = [lat, lon]
+							this.rovMarker.setLatLng(new L.LatLng(lat, lon))
+						}
+					})
+					axios.get(`http://${window.location.hostname}/mavlink2rest/mavlink/vehicles/1/components/1/messages/ATTITUDE/message/yaw`, { timeout: 1000 })
+					.then((response) => {
+						angle = parseFloat(response.data) * 57.2958
+						this.rovMarker.setRotationAngle(angle)
+					})
+			},
+			createMap() {
+				map = L.map('mapid').setView([0, 0], 1);
+				L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
+					maxZoom: 22,
+					subdomains:['mt0','mt1','mt2','mt3'],
+					maxNativeZoom: 20
+				}).addTo(map);
+
+				marker = L.marker([33.841456, -118.335212], { title: "New Origin", draggable: true })
+					.addTo(map)
+					.on('dragend', (event) => {
+						this.newOrigin = [event.latlng.lat, event.latlng.lng]
+					});
+
+				map.on('click', (e) => {
+					newLng = e.latlng.lng
+					while (newLng > 180) {
+						newLng -= 360
+					}
+					while (newLng < -180) {
+						newLng += 360
+					}
+					this.newOrigin = [e.latlng.lat, newLng]
+					marker.setLatLng(e.latlng)
+					map.setView([e.latlng.lat, newLng])
+				});
+			},
+			/* Toggles driver on/off */
+			setDvlEnabled(event) {
+				const request = new XMLHttpRequest();
+				request.timeout = 800;
+				request.open('GET', 'enable/' + event, true);
+				request.send();
+			},
+
+
+			setCurrentLocation() {
+				const request = new XMLHttpRequest();
+				request.timeout = 800;
+				request.open('GET', 'setcurrentposition/' + this.newOrigin[0] + '/' + this.newOrigin[1], true);
+				request.send();
+			},
+
+		},
+		mounted() {
+			console.log('mounted!')
+			this.createMap()
+			this.updateDvlStatus()
+			setInterval(this.updateDvlStatus, 2000)
+			setInterval(this.updateVehiclePosition, 1000)
+		}
+	})
+
+</script>
+
+</html>

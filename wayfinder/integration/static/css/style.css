@@ -1,0 +1,20 @@
+.theme--light.v-application {
+	background: #ffffff;
+}
+
+.theme--light.v-label {
+    color: rgba(0,0,0,.87);
+}
+
+.logo {
+	float: right;
+	max-width: 300px;
+}
+
+#mapid {
+	margin-bottom:20px;
+}
+
+#btn-location {
+	float:right;
+}

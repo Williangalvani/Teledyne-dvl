@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""
+Driver for the Waterlinked DVL A-50
+"""
+
+import json
+
+from flask import Flask
+
+# set the project root directory as the static folder, you can set others.
+app = Flask(__name__, static_url_path="/static", static_folder="static")
+thread = None
+
+
+class API:
+    dvl = None
+
+    def __init__(self, dvl):
+        self.dvl = dvl
+
+    def get_status(self) -> str:
+        """
+        Returns the driver status as a JSON containing the keys
+        status, orientation, hostname, and enabled
+        """
+        return json.dumps(self.dvl.get_status())
+
+    def set_enabled(self, enabled: str) -> bool:
+        """
+        Enables/Disables the DVL driver
+        """
+        if enabled in ["true", "false"]:
+            return self.dvl.set_enabled(enabled == "true")
+        return False
+
+    def set_current_position(self, lat: str, lon: str) -> bool:
+        """
+        Sets the EKF origin to lat, lon
+        """
+        return self.dvl.set_current_position(float(lat), float(lon))
+
+if __name__ == "__main__":
+    #driver = DvlDriver()
+    api = API(None)
+
+    @app.route("/get_status")
+    def get_status():
+        return api.get_status()
+
+    @app.route("/enable/<enable>")
+    def set_enabled(enable: str):
+        return str(api.set_enabled(enable))
+
+    @app.route("/setcurrentposition/<lat>/<lon>")
+    def set_current_position(lat, lon):
+        return str(api.set_current_position(lat, lon))
+
+    @app.route("/register_service")
+    def register_service():
+        return app.send_static_file("service.json")
+
+    @app.route("/")
+    def root():
+        return app.send_static_file("index.html")
+
+    #driver.start()
+    app.run(host="0.0.0.0", port=9001)
